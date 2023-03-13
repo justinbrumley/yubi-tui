@@ -10,6 +10,11 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+const (
+	primaryColor = lipgloss.Color("#6f8f92")
 )
 
 type Application struct {
@@ -22,6 +27,10 @@ type Application struct {
 type Model struct {
 	Applications []Application
 	Cursor       int
+
+	// For scrollable list
+	Start int
+	End   int
 }
 
 var codeRegexp = regexp.MustCompile("(.*\\S)\\s+(\\d+|\\[Requires Touch\\])")
@@ -85,6 +94,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case codesMsg:
 		m.Applications = msg.Applications
+		m.Start = 0
+		m.End = len(m.Applications) - 1
 		return m, startTimer
 
 	case tickMsg:
@@ -120,16 +131,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	out := ""
 
+	appNameMaxWidth := 32
+	codeMaxWidth := 16
+
 	for i, app := range m.Applications {
+		if i > 0 {
+			out += "\n"
+		}
+
 		cursor := "  "
 		if m.Cursor == i {
 			cursor = "> "
 		}
 
-		out += fmt.Sprintf("%s%s - %s\n", cursor, app.Name, app.Code)
+		appNameLabel := fmt.Sprintf("%s%s", cursor, app.Name)
+		if len(appNameLabel) > appNameMaxWidth {
+			appNameLabel = appNameLabel[:appNameMaxWidth-3] + "..."
+		}
+
+		appName := lipgloss.NewStyle().
+			Bold(m.Cursor == i).
+			Width(appNameMaxWidth).
+			Render(appNameLabel)
+
+		code := lipgloss.NewStyle().
+			Align(lipgloss.Right).
+			Width(codeMaxWidth).
+			Render(app.Code)
+
+		out += lipgloss.JoinHorizontal(lipgloss.Bottom, appName, " ", code)
 	}
 
-	return out
+	return lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Foreground(primaryColor).
+		PaddingRight(2).
+		Render(out)
 }
 
 func main() {
