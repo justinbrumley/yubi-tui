@@ -17,6 +17,12 @@ const (
 	primaryColor = lipgloss.Color("#6f8f92")
 )
 
+var globalStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.RoundedBorder()).
+	BorderForeground(primaryColor).
+	Foreground(primaryColor).
+	PaddingRight(2)
+
 type Application struct {
 	Name          string
 	Account       string
@@ -27,6 +33,10 @@ type Application struct {
 type Model struct {
 	Applications []Application
 	Cursor       int
+
+	// Viewport size
+	MaxWidth  int
+	MaxHeight int
 
 	// For scrollable list
 	Start int
@@ -102,6 +112,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Refetch codes
 		return m, getCodes
 
+	case tea.WindowSizeMsg:
+		h, v := globalStyle.GetFrameSize()
+		m.MaxWidth = msg.Width - h
+		m.MaxHeight = msg.Height - v
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -131,8 +146,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	out := ""
 
-	appNameMaxWidth := 32
-	codeMaxWidth := 16
+	extraOffset := 3 // Magic number of spaces and extra chars
+	codeWidth := 16
+	labelWidth := m.MaxWidth - codeWidth - extraOffset
 
 	for i, app := range m.Applications {
 		if i > 0 {
@@ -144,37 +160,35 @@ func (m Model) View() string {
 			cursor = "> "
 		}
 
-		appNameLabel := fmt.Sprintf("%s%s", cursor, app.Name)
-		if len(appNameLabel) > appNameMaxWidth {
-			appNameLabel = appNameLabel[:appNameMaxWidth-3] + "..."
+		label := fmt.Sprintf("%s%s", cursor, app.Name)
+		if len(label) > labelWidth && labelWidth > 3 {
+			label = label[:labelWidth-3] + "..."
 		}
 
 		appName := lipgloss.NewStyle().
 			Bold(m.Cursor == i).
-			Width(appNameMaxWidth).
-			Render(appNameLabel)
+			Width(labelWidth).
+			Render(label)
 
 		code := lipgloss.NewStyle().
 			Align(lipgloss.Right).
-			Width(codeMaxWidth).
+			Width(codeWidth).
 			Render(app.Code)
 
 		out += lipgloss.JoinHorizontal(lipgloss.Bottom, appName, " ", code)
 	}
 
-	return lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(primaryColor).
-		Foreground(primaryColor).
-		PaddingRight(2).
+	return globalStyle.Copy().
+		Width(m.MaxWidth).
+		Height(m.MaxHeight).
 		Render(out)
 }
 
 func main() {
 	m := Model{}
 
-	// p := tea.NewProgram(m, tea.WithAltScreen())
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	// p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 		os.Exit(1)
