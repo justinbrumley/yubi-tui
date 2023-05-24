@@ -13,6 +13,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const DeviceSerial = "13371957"
+
 const (
 	primaryColor = lipgloss.Color("#6f8f92")
 )
@@ -47,7 +49,7 @@ var codeRegexp = regexp.MustCompile("(.*\\S)\\s+(\\d+|\\[Requires Touch\\])")
 
 // getCodes fetches list of applications w/codes using ykman
 func getCodes() tea.Msg {
-	cmd := exec.Command("ykman", "oath", "accounts", "code")
+	cmd := exec.Command("ykman", "--device", DeviceSerial, "oath", "accounts", "code")
 	buf, err := cmd.Output()
 	if err != nil {
 		return err.(errMsg)
@@ -65,7 +67,11 @@ func getCodes() tea.Msg {
 		matches := codeRegexp.FindSubmatch(line)
 		info := bytes.Split(matches[1], []byte(":"))
 		app := info[0]
-		acc := info[1]
+		acc := make([]byte, 0)
+		if len(info) > 1 {
+			acc = info[1]
+		}
+
 		code := matches[2]
 
 		applications = append(applications, Application{
