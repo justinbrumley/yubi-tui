@@ -328,7 +328,7 @@ func (m Model) View() string {
 func main() {
 	err := clipboard.Init()
 	if err != nil {
-		panic(err)
+		fmt.Printf("Clipboard disabled because it failed to init: %v\n", err)
 	}
 
 	m := Model{
